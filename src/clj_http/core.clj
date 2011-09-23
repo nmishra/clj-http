@@ -6,6 +6,7 @@
                             HttpResponse Header HttpHost)
            (org.apache.http.util EntityUtils)
            (org.apache.http.entity ByteArrayEntity)
+           (org.apache.http.entity.mime MultipartEntity)
            (org.apache.http.client HttpClient)
            (org.apache.http.client.methods HttpGet HttpHead HttpPut
                                            HttpPost HttpDelete
@@ -38,7 +39,7 @@
    the clj-http uses ByteArrays for the bodies."
   [{:keys [request-method scheme server-name server-port uri query-string
            headers content-type character-encoding body socket-timeout
-           conn-timeout debug] :as req}]
+           conn-timeout multipart debug] :as req}]
   (let [http-client (DefaultHttpClient.)]
     (try
       (doto http-client
@@ -74,9 +75,14 @@
         (.addHeader http-req "Connection" "close")
         (doseq [[header-n header-v] headers]
           (.addHeader http-req header-n header-v))
-        (when body
-          (let [http-body (ByteArrayEntity. body)]
-            (.setEntity #^HttpEntityEnclosingRequest http-req http-body)))
+        (if multipart
+          (let [mp-entity (MultipartEntity.)]
+            (doseq [[k v] multipart]
+              (.addPart mp-entity (name k) v))
+            (.setEntity #^HttpEntityEnclosingRequest http-req mp-entity))
+          (when body
+            (let [http-body (ByteArrayEntity. body)]
+              (.setEntity #^HttpEntityEnclosingRequest http-req http-body))))
         (when debug
           (println "Request:")
           (clojure.pprint/pprint req)
